@@ -1,0 +1,163 @@
+/* AI Assistant Pro - Content Styles */
+#ai-assistant-pro-button {
+  position: fixed !important;
+  right: 20px !important;
+  bottom: 20px !important;
+  width: 56px !important;
+  height: 56px !important;
+  background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  z-index: 2147483647 !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+  transition: transform 0.2s, box-shadow 0.2s !important;
+  color: white !important;
+}
+
+#ai-assistant-pro-button:hover {
+  transform: scale(1.05) !important;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.2) !important;
+}
+
+#ai-assistant-pro-button:active {
+  transform: scale(0.95) !important;
+}
+
+#ai-assistant-pro-sidebar {
+  position: fixed !important;
+  top: 0 !important;
+  right: -400px !important;
+  width: 380px !important;
+  height: 100% !important;
+  background: #ffffff !important;
+  z-index: 2147483646 !important;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.15) !important;
+  transition: right 0.3s ease !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+#ai-assistant-pro-sidebar.open {
+  right: 0 !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  #ai-assistant-pro-sidebar { background: #0f172a !important; }
+}
+
+.ai-sidebar-header {
+  padding: 16px !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+.ai-sidebar-title {
+  font-weight: 600 !important;
+  color: #1e293b !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ai-sidebar-header { border-bottom-color: #475569 !important; }
+  .ai-sidebar-title { color: #f1f5f9 !important; }
+}
+
+.ai-close-btn {
+  background: none !important;
+  border: none !important;
+  font-size: 24px !important;
+  cursor: pointer !important;
+  color: #64748b !important;
+  padding: 0 !important;
+  width: 30px !important;
+  height: 30px !important;
+}
+
+.ai-sidebar-content {
+  flex: 1 !important;
+  padding: 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  overflow-y: auto !important;
+}
+
+.ai-selection-info {
+  background: #f1f5f9 !important;
+  padding: 8px 12px !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  color: #64748b !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ai-selection-info { background: #334155 !important; color: #cbd5e1 !important; }
+}
+
+#ai-user-input {
+  width: 100% !important;
+  padding: 10px !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 8px !important;
+  resize: vertical !important;
+  font-family: inherit !important;
+  background: #ffffff !important;
+  color: #1e293b !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  #ai-user-input { background: #1e293b !important; border-color: #475569 !important; color: #f1f5f9 !important; }
+}
+
+.ai-actions {
+  display: flex !important;
+  gap: 8px !important;
+}
+
+.ai-actions select {
+  flex: 1 !important;
+  padding: 8px !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 6px !important;
+  background: #ffffff !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ai-actions select { background: #1e293b !important; border-color: #475569 !important; }
+}
+
+#ai-send-btn {
+  background: #3b82f6 !important;
+  color: white !important;
+  border: none !important;
+  padding: 0 16px !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+}
+
+#ai-send-btn:hover { background: #2563eb !important; }
+
+.ai-response {
+  background: #f8fafc !important;
+  padding: 12px !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  white-space: pre-wrap !important;
+  max-height: 200px !important;
+  overflow-y: auto !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ai-response { background: #1e293b !important; }
+}
+
+.ai-loading { color: #64748b !important; }
+.ai-error { color: #ef4444 !important; }

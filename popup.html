@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Assistant Pro</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 11 5.16-1.26 9-5.45 9-11V7l-10-5z"/>
+          <path d="M12 22V12"/>
+          <path d="M8 12h8"/>
+        </svg>
+        <h1>AI Assistant Pro</h1>
+      </div>
+      <button class="theme-toggle" id="themeToggle" title="Toggle theme">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+    </header>
+
+    <div class="onboarding" id="onboarding">
+      <p>Welcome! Select text on any page and use the AI actions below.</p>
+      <button id="dismissOnboarding">Got it!</button>
+    </div>
+
+    <div class="api-warning" id="apiWarning">
+      <p>Please set your Gemini API key in extension settings.</p>
+      <button id="openSettings">Open Settings</button>
+    </div>
+
+    <div class="input-section">
+      <div class="selection-info" id="selectionInfo">
+        <span>No text selected</span>
+      </div>
+      <textarea id="userInput" placeholder="Ask anything about the webpage or type your question..." rows="3"></textarea>
+      <div class="input-actions">
+        <select id="actionType">
+          <option value="ask">Ask Question</option>
+          <option value="summarize">Summarize</option>
+          <option value="rewrite">Rewrite Professionally</option>
+          <option value="translate">Translate</option>
+          <option value="email">Email Reply</option>
+        </select>
+        <button id="sendBtn" class="send-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="response-section" id="responseSection">
+      <div class="response-header">
+        <h3>Response</h3>
+        <button class="copy-btn" id="copyBtn" title="Copy to clipboard">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+        </button>
+      </div>
+      <div class="response-content" id="responseContent">
+        <div class="loading" id="loading">
+          <div class="spinner"></div>
+          <span>Processing...</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="history-section">
+      <div class="history-header">
+        <h3>History</h3>
+        <button id="clearHistory" title="Clear history">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+        </button>
+      </div>
+      <div class="history-list" id="historyList"></div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
