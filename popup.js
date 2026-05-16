@@ -1,5 +1,4 @@
-// AI Assistant Pro - Popup Script
-let apiKey = null;
+// AI Assistant Pro - Popup Script (Multi-Provider)
 let selectedText = '';
 let conversationHistory = [];
 
@@ -9,49 +8,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function initialize() {
-  const { geminiApiKey, theme, hasSeenOnboarding } = await chrome.storage.sync.get(['geminiApiKey', 'theme', 'hasSeenOnboarding']);
-  apiKey = geminiApiKey || null;
+  const { theme, hasSeenOnboarding } = await chrome.storage.sync.get(['theme', 'hasSeenOnboarding']);
   
-  // Set theme
   const savedTheme = theme || 'light';
   document.documentElement.setAttribute('data-theme', savedTheme);
-  document.getElementById('themeToggle').innerHTML = savedTheme === 'dark' 
-    ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`
-    : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
-
-  // Show/hide onboarding
+  
   if (!hasSeenOnboarding) {
     document.getElementById('onboarding').style.display = 'flex';
   }
-
-  // Check API key
-  updateApiWarning();
-
-  // Load history
-  await loadHistory();
-
-  // Get selected text from content script
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tab) {
-    try {
-      const response = await chrome.tabs.sendMessage(tab.id, { action: 'getSelectedText' });
-      if (response?.selectedText) {
-        selectedText = response.selectedText;
-        updateSelectionInfo();
-      }
-    } catch (e) {
-      // Content script may not be ready yet
-    }
-  }
+  
+  detectProviders();
 }
 
 function setupEventListeners() {
   document.getElementById('sendBtn').addEventListener('click', handleSend);
   document.getElementById('themeToggle').addEventListener('click', toggleTheme);
   document.getElementById('copyBtn').addEventListener('click', copyResponse);
-  document.getElementById('clearHistory').addEventListener('click', clearHistory);
   document.getElementById('dismissOnboarding').addEventListener('click', dismissOnboarding);
   document.getElementById('openSettings').addEventListener('click', openSettings);
+  document.getElementById('openSettingsHeader').addEventListener('click', openSettings);
+  document.getElementById('providerSelect').addEventListener('change', saveProviderPreference);
   
   document.getElementById('userInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -59,43 +35,61 @@ function setupEventListeners() {
       handleSend();
     }
   });
-
-  // Auto-expand textarea
-  const textarea = document.getElementById('userInput');
-  textarea.addEventListener('input', () => {
-    textarea.style.height = 'auto';
-    textarea.style.height = Math.min(textarea.scrollHeight, 100) + 'px';
-  });
 }
 
-function updateSelectionInfo() {
-  const info = document.getElementById('selectionInfo');
-  const span = info.querySelector('span');
-  if (selectedText) {
-    span.textContent = selectedText.substring(0, 50) + (selectedText.length > 50 ? '...' : '');
-    info.classList.add('active');
+async function detectProviders() {
+  const status = {};
+  
+  try {
+    const res = await fetch('http://localhost:11434/api/tags', { method: 'GET' });
+    status.ollama = res.ok ? 'ok' : 'error';
+  } catch { status.ollama = 'offline'; }
+  
+  try {
+    const res = await fetch('http://localhost:1234/v1/models', { method: 'GET' });
+    status.lmstudio = res.ok ? 'ok' : 'error';
+  } catch { status.lmstudio = 'offline'; }
+  
+  const statusEl = document.getElementById('providerStatus');
+  if (status.ollama === 'ok') {
+    statusEl.innerHTML = '<span class="local-ok">● Ollama Connected</span>';
+  } else if (status.lmstudio === 'ok') {
+    statusEl.innerHTML = '<span class="local-ok">● LM Studio Connected</span>';
   } else {
-    info.classList.remove('active');
+    statusEl.innerHTML = '<span class="local-offline">● Local AI Offline</span>';
   }
 }
 
 async function handleSend() {
   const userInput = document.getElementById('userInput').value.trim();
   const actionType = document.getElementById('actionType').value;
+  const provider = document.getElementById('providerSelect').value;
   
   if (!userInput && !selectedText) return;
-  if (!apiKey) {
+  
+const apiKeys = await chrome.storage.sync.get(['groqApiKey', 'openrouterApiKey', 'nvidiaApiKey', 'geminiApiKey', 'openaiApiKey', 'anthropicApiKey', 'poolsideApiKey']);
+   const keys = {
+     groq: apiKeys.groqApiKey,
+     openrouter: apiKeys.openrouterApiKey,
+     nvidia: apiKeys.nvidiaApiKey,
+     gemini: apiKeys.geminiApiKey,
+     openai: apiKeys.openaiApiKey,
+     anthropic: apiKeys.anthropicApiKey,
+     poolside: apiKeys.poolsideApiKey
+   };
+  
+  const hasValidKey = Object.values(keys).some(k => k);
+  if (!hasValidKey && provider !== 'ollama' && provider !== 'lmstudio') {
     openSettings();
     return;
   }
-
+  
   const question = formatQuestion(userInput, actionType);
   showLoading(true);
   
   try {
-    const response = await callGeminiAPI(question);
-    displayResponse(response);
-    saveToHistory(actionType, question, response);
+    const response = await callAI(question, provider, keys);
+    displayResponse(response, provider);
   } catch (error) {
     displayError(error.message);
   }
@@ -103,84 +97,151 @@ async function handleSend() {
   showLoading(false);
 }
 
-function formatQuestion(input, action) {
-  const context = selectedText ? `\n\nSelected text: "${selectedText}"` : '';
+async function callAI(prompt, provider, keys) {
+  let lastError = null;
   
-  switch (action) {
-    case 'summarize':
-      return `Summarize the following text professionally:${context}\n${input || selectedText || ''}`;
-    case 'rewrite':
-      return `Rewrite the following text professionally and clearly:${context}\n${input || selectedText || ''}`;
-    case 'translate':
-      return `Translate the following text to English:${context}\n${input || selectedText || ''}`;
-    case 'email':
-      return `Generate a professional email reply to the following:${context}\n${input || selectedText || ''}`;
-    default:
-      return `${input}${context}`;
-  }
-}
-
-async function callGeminiAPI(prompt) {
-  const maxRetries = 3;
-  let lastError;
-
-  for (let i = 0; i < maxRetries; i++) {
+  // Try local providers first
+  if (provider === 'ollama' || provider === 'auto') {
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            role: 'user',
-            parts: [{ text: sanitizeInput(prompt) }]
-          }],
-          generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 2048
-          }
-        })
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error?.message || `API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response received.';
-    } catch (error) {
-      lastError = error;
-      if (i < maxRetries - 1) await new Promise(r => setTimeout(r, 1000 * (i + 1)));
-    }
+      return await callOllama(prompt);
+    } catch (e) { lastError = e; }
   }
   
-  throw lastError;
+  if (provider === 'lmstudio' || provider === 'auto') {
+    try {
+      return await callLMStudio(prompt);
+    } catch (e) { lastError = e; }
+  }
+  
+  // Try cloud providers
+  const providerOrder = getProviderOrder(provider);
+  for (const prov of providerOrder) {
+    if (!keys[prov]) continue;
+    try {
+      return await callCloudAPI(prompt, prov, keys[prov]);
+    } catch (e) { lastError = e; }
+  }
+  
+  throw lastError || new Error('All providers failed');
 }
 
-function sanitizeInput(text) {
-  return text.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-             .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '');
+function getProviderOrder(preferred) {
+  if (preferred === 'auto') {
+    return ['groq', 'openrouter', 'nvidia', 'gemini', 'openai', 'anthropic', 'poolside'];
+  }
+  return [preferred];
 }
 
-function displayResponse(text) {
-  const responseSection = document.getElementById('responseSection');
-  const responseContent = document.getElementById('responseContent');
+async function callCloudAPI(prompt, provider, apiKey) {
+  let url, body, headers;
   
-  responseContent.textContent = text;
-  responseSection.classList.add('active');
+  switch (provider) {
+    case 'groq':
+      url = 'https://api.groq.com/openai/v1/chat/completions';
+      headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
+      body = { model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], temperature: 0.7 };
+      break;
+    case 'openrouter':
+      url = 'https://openrouter.ai/api/v1/chat/completions';
+      headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
+      body = { model: 'meta-llama/llama-3-8b-instruct:free', messages: [{ role: 'user', content: prompt }], temperature: 0.7 };
+      break;
+    case 'nvidia':
+      url = 'https://integrate.api.nvidia.com/v1/chat/completions';
+      headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
+      body = { model: 'nvidia/nemotron-4-340b-reward', messages: [{ role: 'user', content: prompt }], temperature: 0.7 };
+      break;
+    case 'gemini':
+      url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      headers = { 'Content-Type': 'application/json' };
+      body = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7 } };
+      break;
+    case 'openai':
+      url = 'https://api.openai.com/v1/chat/completions';
+      headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
+      body = { model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], temperature: 0.7 };
+      break;
+    case 'anthropic':
+      url = 'https://api.anthropic.com/v1/messages';
+      headers = { 'x-api-key': apiKey, 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01' };
+      body = { model: 'claude-3-5-sonnet-20241022', max_tokens: 1024, messages: [{ role: 'user', content: prompt }] };
+      break;
+    case 'poolside':
+      url = 'https://api.poolside.ai/v1/chat/completions';
+      headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
+      body = { model: 'laguna-m1', messages: [{ role: 'user', content: prompt }], temperature: 0.7 };
+      break;
+  }
   
-  // Auto-scroll to response
-  responseSection.scrollIntoView({ behavior: 'smooth' });
+  const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+  if (!response.ok) {
+    let errorMsg = `API error: ${response.status}`;
+    try {
+      const error = await response.json();
+      if (error.error?.message) {
+        errorMsg = error.error.message;
+      } else if (error.message) {
+        errorMsg = error.message;
+      }
+    } catch (e) {}
+    throw new Error(errorMsg);
+  }
+  
+  const data = await response.json();
+  if (provider === 'gemini') {
+    return data.candidates?.[0]?.content?.parts?.[0]?.text;
+  } else if (provider === 'anthropic') {
+    return data.content?.[0]?.text;
+  }
+  return data.choices?.[0]?.message?.content;
+}
+
+async function callOllama(prompt) {
+  const response = await fetch('http://localhost:11434/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'llama3', messages: [{ role: 'user', content: prompt }], stream: false })
+  });
+  if (!response.ok) throw new Error('Ollama not running');
+  const data = await response.json();
+  return data.message?.content;
+}
+
+async function callLMStudio(prompt) {
+  const response = await fetch('http://localhost:1234/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'llama-3.2-3b-instruct', messages: [{ role: 'user', content: prompt }] })
+  });
+  if (!response.ok) throw new Error('LM Studio not running');
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content;
+}
+
+function formatQuestion(input, action) {
+  const context = selectedText ? `\n\nSelected: "${selectedText}"` : '';
+  switch (action) {
+    case 'summarize': return `Summarize:\n${input || selectedText}${context}`;
+    case 'rewrite': return `Rewrite professionally:\n${input || selectedText}${context}`;
+    case 'translate': return `Translate to English:\n${input || selectedText}${context}`;
+    case 'email': return `Write email reply:\n${input || selectedText}${context}`;
+    default: return `${input}${context}`;
+  }
+}
+
+function showLoading(show) {
+  document.getElementById('loading').style.display = show ? 'flex' : 'none';
+  document.getElementById('sendBtn').disabled = show;
+}
+
+function displayResponse(text, provider = '') {
+  document.getElementById('responseContent').textContent = text;
+  document.getElementById('responseSection').classList.add('active');
 }
 
 function displayError(message) {
-  const responseSection = document.getElementById('responseSection');
-  const responseContent = document.getElementById('responseContent');
-  
-  responseContent.innerHTML = `<span style="color: var(--error)">Error: ${escapeHtml(message)}</span>`;
-  responseSection.classList.add('active');
+  document.getElementById('responseContent').innerHTML = `<span style="color: var(--error)">Error: ${escapeHtml(message)}</span>`;
+  document.getElementById('responseSection').classList.add('active');
 }
 
 function escapeHtml(text) {
@@ -189,24 +250,9 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function showLoading(show) {
-  const loading = document.getElementById('loading');
-  loading.style.display = show ? 'flex' : 'none';
-  document.getElementById('sendBtn').disabled = show;
-}
-
 async function copyResponse() {
   const response = document.getElementById('responseContent').textContent;
-  try {
-    await navigator.clipboard.writeText(response);
-    const btn = document.getElementById('copyBtn');
-    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>';
-    setTimeout(() => {
-      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-    }, 2000);
-  } catch (e) {
-    console.error('Copy failed:', e);
-  }
+  await navigator.clipboard.writeText(response);
 }
 
 async function toggleTheme() {
@@ -214,45 +260,10 @@ async function toggleTheme() {
   const newTheme = current === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', newTheme);
   await chrome.storage.sync.set({ theme: newTheme });
-  document.getElementById('themeToggle').innerHTML = newTheme === 'dark'
-    ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`
-    : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
 }
 
-async function loadHistory() {
-  const { history } = await chrome.storage.local.get(['history']);
-  conversationHistory = history || [];
-  renderHistory();
-}
-
-function renderHistory() {
-  const list = document.getElementById('historyList');
-  list.innerHTML = conversationHistory.slice(-5).reverse().map(item => `
-    <div class="history-item" data-question="${escapeHtml(item.question)}">
-      <div class="action">${item.action}</div>
-      <div class="question">${escapeHtml(item.question.substring(0, 60))}${item.question.length > 60 ? '...' : ''}</div>
-    </div>
-  `).join('');
-
-  list.querySelectorAll('.history-item').forEach(item => {
-    item.addEventListener('click', () => {
-      document.getElementById('userInput').value = item.dataset.question;
-      handleSend();
-    });
-  });
-}
-
-async function saveToHistory(action, question, response) {
-  conversationHistory.push({ action, question, response, timestamp: Date.now() });
-  conversationHistory = conversationHistory.slice(-50); // Keep last 50
-  await chrome.storage.local.set({ history: conversationHistory });
-  renderHistory();
-}
-
-async function clearHistory() {
-  conversationHistory = [];
-  await chrome.storage.local.set({ history: [] });
-  renderHistory();
+async function saveProviderPreference() {
+  await chrome.storage.sync.set({ preferredProvider: document.getElementById('providerSelect').value });
 }
 
 async function dismissOnboarding() {
@@ -262,8 +273,4 @@ async function dismissOnboarding() {
 
 function openSettings() {
   chrome.runtime.openOptionsPage();
-}
-
-function updateApiWarning() {
-  document.getElementById('apiWarning').style.display = apiKey ? 'none' : 'flex';
 }

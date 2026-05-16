@@ -4,7 +4,13 @@ chrome.runtime.onInstalled.addListener(async ({ reason }) => {
     await chrome.storage.sync.set({
       theme: 'light',
       hasSeenOnboarding: false,
-      geminiApiKey: ''
+      groqApiKey: '',
+      openrouterApiKey: '',
+      nvidiaApiKey: '',
+      geminiApiKey: '',
+      openaiApiKey: '',
+      anthropicApiKey: '',
+      poolsideApiKey: ''
     });
     await chrome.storage.local.set({ history: [] });
   }
@@ -84,4 +90,11 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     type: action,
     text: info.selectionText
   }).catch(() => {});
+});
+
+// Handle messages from content script
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'openSettings') {
+    chrome.runtime.openOptionsPage();
+  }
 });

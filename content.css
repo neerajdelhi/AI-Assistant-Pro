@@ -161,3 +161,7 @@
 
 .ai-loading { color: #64748b !important; }
 .ai-error { color: #ef4444 !important; }
+
+select#ai-action-type {
+    color: black !important;
+}
