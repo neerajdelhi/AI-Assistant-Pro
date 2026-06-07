@@ -57,7 +57,7 @@
       .ai-actions select { flex: 1 !important; padding: 8px !important; border: 1px solid #e2e8f0 !important; border-radius: 6px !important; background: #fff !important; }
       .ai-send-btn { background: #3b82f6 !important; color: white !important; border: none !important; padding: 0 16px !important; border-radius: 6px !important; cursor: pointer !important; }
       .ai-response { background: #f8fafc !important; padding: 12px !important; border-radius: 8px !important; font-size: 13px !important; line-height: 1.5 !important; white-space: pre-wrap !important; max-height: 200px !important; overflow-y: auto !important; }
-      @media (prefers-color-scheme: dark) { .ai-response { background: #1e293b !important; } }
+      @media (prefers-color-scheme: dark) { .ai-response { background: #e5e8ee !important; } }
       .ai-loading { color: #64748b !important; }
       .ai-error { color: #ef4444 !important; }
     `;

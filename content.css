@@ -156,7 +156,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  .ai-response { background: #1e293b !important; }
+  .ai-response { background: #e5e8ee !important; }
 }
 
 .ai-loading { color: #64748b !important; }
